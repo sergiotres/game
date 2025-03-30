@@ -195,21 +195,25 @@
     });
 
     // Eventos de teclado para movimiento WASD y cambio a animación de correr
-    window.addEventListener('keydown', (e) => {
-      switch(e.code) {
-        case 'KeyW': moveForward = true; break;
-        case 'KeyS': moveBackward = true; break;
-        case 'KeyA': moveLeft = true; break;
-        case 'KeyD': moveRight = true; break;
-      }
-      // Si se presiona alguna tecla de movimiento y runAction está cargada, activar la animación de correr
-      if ((moveForward || moveBackward || moveLeft || moveRight) && runAction && !moving) {
-        moving = true;
-        idleAction.crossFadeTo(runAction, 0.2, false);
-        runAction.reset();
-        runAction.play();
-      }
-    });
+  window.addEventListener('keydown', (e) => {
+  // Ignorar eventos repetidos
+  if (e.repeat) return;
+
+  switch(e.code) {
+    case 'KeyW': moveForward = true; break;
+    case 'KeyS': moveBackward = true; break;
+    case 'KeyA': moveLeft = true; break;
+    case 'KeyD': moveRight = true; break;
+  }
+  // Si se presiona alguna tecla de movimiento y runAction está cargada y no se está ya moviendo...
+  if ((moveForward || moveBackward || moveLeft || moveRight) && runAction && !moving) {
+    moving = true;
+    // Crossfade de idle a correr sin reiniciar la animación si ya está corriendo
+    idleAction.crossFadeTo(runAction, 0.2, false);
+    // Llama play() una sola vez (no reiniciamos runAction si ya está en marcha)
+    runAction.play();
+  }
+});
 
     window.addEventListener('keyup', (e) => {
       switch(e.code) {
