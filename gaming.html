@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Visor 3D con Three.js (GLB o FBX)</title>
+  <title>Visor 3D con Three.js (FBX con Animación)</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -19,21 +19,20 @@
 <body>
   <div id="container"></div>
 
-  <!-- Script de módulo para importar Three.js, OrbitControls, GLTFLoader y FBXLoader -->
+  <!-- Script de módulo para importar Three.js, OrbitControls y FBXLoader -->
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/controls/OrbitControls.js';
-    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/loaders/GLTFLoader.js';
     import { FBXLoader } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/loaders/FBXLoader.js';
 
     // Selecciona el contenedor
     const container = document.getElementById('container');
 
-    // Creamos la escena y definimos el color de fondo
+    // Crea la escena y define el color de fondo
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xaaaaaa);
 
-    // Creamos la cámara
+    // Crea la cámara
     const camera = new THREE.PerspectiveCamera(
       60,
       window.innerWidth / window.innerHeight,
@@ -42,17 +41,17 @@
     );
     camera.position.set(0, 2, 5);
 
-    // Configuramos el renderer y lo agregamos al contenedor
+    // Configura el renderer y agrégalo al contenedor
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    // Configuramos los controles para mover la cámara
+    // Configura los controles para mover la cámara
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 1, 0);
     controls.update();
 
-    // Agregamos luces a la escena
+    // Agrega luces a la escena
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
     hemiLight.position.set(0, 50, 0);
     scene.add(hemiLight);
@@ -61,7 +60,7 @@
     dirLight.position.set(10, 10, 10);
     scene.add(dirLight);
 
-    // Creamos un plano que actúe como suelo
+    // Crea un plano que actúe como suelo
     const planeGeometry = new THREE.PlaneGeometry(200, 200);
     const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 });
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
@@ -69,40 +68,43 @@
     plane.receiveShadow = true;
     scene.add(plane);
 
-    // Variable para elegir el tipo de modelo: 'glb' o 'fbx'
-    const modelType = 'fbx'; // Cambia a 'fbx' para cargar un archivo FBX
+    // Variable para el AnimationMixer y reloj para actualizar la animación
+    let mixer;
+    const clock = new THREE.Clock();
 
-    // Función común para configurar el modelo una vez cargado
-    function setupModel(model) {
-      model.traverse((child) => {
-        if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
+    // Carga el modelo FBX con animación
+    const loader = new FBXLoader();
+    loader.load(
+      './GreatSwordCasting.fbx', // Asegúrate de que el archivo esté en la ruta correcta
+      (object) => {
+        // Configura las sombras de los meshes
+        object.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+        scene.add(object);
+
+        // Si el modelo contiene animaciones, se crean y reproducen
+        if (object.animations && object.animations.length) {
+          mixer = new THREE.AnimationMixer(object);
+          // Reproduce todas las animaciones
+          object.animations.forEach((clip) => {
+            const action = mixer.clipAction(clip);
+            action.play();
+          });
         }
-      });
-      scene.add(model);
-    }
+      },
+      (xhr) => {
+        console.log((xhr.loaded / xhr.total * 100) + '% cargado');
+      },
+      (error) => {
+        console.error('Ocurrió un error al cargar el modelo FBX', error);
+      }
+    );
 
-    // Cargar el modelo según el tipo
-  if (modelType === 'fbx') {
-      const loader = new FBXLoader();
-      loader.load(
-        './GreatSwordCasting.fbx', // Asegúrate de que el archivo esté en la ruta correcta
-        (object) => {
-          setupModel(object);
-        },
-        (xhr) => {
-          console.log((xhr.loaded / xhr.total * 100) + '% cargado');
-        },
-        (error) => {
-          console.error('Ocurrió un error al cargar el modelo FBX', error);
-        }
-      );
-    } else {
-      console.error('Tipo de modelo no soportado. Usa "glb" o "fbx".');
-    }
-
-    // Ajustar el tamaño cuando se redimensiona la ventana
+    // Ajusta el tamaño cuando se redimensiona la ventana
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
@@ -112,6 +114,8 @@
     // Función de animación
     function animate() {
       requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      if (mixer) mixer.update(delta);
       renderer.render(scene, camera);
     }
     animate();
