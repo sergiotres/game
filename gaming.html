@@ -2,10 +2,11 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Movimiento y Animación con WASD - Personaje de Espaldas</title>
+  <title>Juego de Mazmorras - Movimiento, Swordcasting e Interfaz</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
+    /* Estilos para la interfaz de usuario */
     #ui {
       position: absolute;
       top: 10px;
@@ -16,7 +17,9 @@
       font-family: sans-serif;
       z-index: 100;
     }
+    #ui div { margin-bottom: 5px; }
   </style>
+  <!-- Import map para Three.js -->
   <script type="importmap">
     {
       "imports": {
@@ -26,30 +29,58 @@
   </script>
 </head>
 <body>
+  <!-- Interfaz de usuario -->
   <div id="ui">
-    <p>Usa WASD para mover el personaje</p>
+    <div>
+      <label for="scaleSlider">Escala Modelo:</label>
+      <input type="range" id="scaleSlider" min="0.1" max="2" step="0.1" value="1">
+      <span id="scaleValue">1</span>
+    </div>
+    <div>
+      <label>Offset (distancia):</label>
+      <span id="offsetValue">0</span>
+    </div>
+    <div>
+      <label>Cam X:</label>
+      <span id="camX">0</span>
+    </div>
+    <div>
+      <label>Cam Y:</label>
+      <span id="camY">0</span>
+    </div>
+    <div>
+      <label>Cam Z:</label>
+      <span id="camZ">0</span>
+    </div>
+    <div>
+      <p>Usa WASD para mover el personaje</p>
+    </div>
   </div>
+
   <div id="container"></div>
   
+  <!-- Script de módulo para Three.js, OrbitControls y FBXLoader -->
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/controls/OrbitControls.js';
     import { FBXLoader } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/loaders/FBXLoader.js';
 
-    // Elementos básicos
+    // Elementos básicos: contenedor, escena, cámara y renderer
     const container = document.getElementById('container');
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xaaaaaa);
+
+    // Posición de cámara fijada (ajústala según tus necesidades)
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    // Usamos los valores fijos que definiste
     camera.position.set(-0.44, 21.03, 28.95);
+
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    // Controles de cámara
+    // OrbitControls: se actualizará la interfaz con sus valores
     const controls = new OrbitControls(camera, renderer.domElement);
-    // Se asume que el target ya lo definiste previamente
+    // Definir un target fijo (esto afecta el offset)
     controls.target.set(0, 1, 0);
     controls.update();
 
@@ -72,15 +103,16 @@
     // Variables para el modelo y animaciones
     let mixer = null;
     let idleAction = null;
-    let runAction = null;
-    let model = null;
+    let castingAction = null;
+    let model = null; // Modelo con animación idle
     const clock = new THREE.Clock();
-    
-    // Variables de movimiento
-    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-    const speed = 0.1;
+    let castingActive = false;
 
-    // Función para configurar sombras
+    // Variables para movimiento con WASD
+    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+    const speed = 0.1; // Velocidad de movimiento
+
+    // Función para configurar sombras en el modelo
     function setupModel(object) {
       object.traverse(child => {
         if (child.isMesh) {
@@ -92,41 +124,72 @@
     }
 
     const fbxLoader = new FBXLoader();
-    // Cargar el modelo Idle
+
+    // Cargar el modelo Idle (GreatSwordIdle.fbx)
     fbxLoader.load(
       './GreatSwordIdle.fbx',
       (object) => {
         model = object;
         setupModel(model);
-        // Fijar la escala (por ejemplo, 0.1)
-        model.scale.set(0.1, 0.1, 0.1);
-        // ROTAR 180° en Y para que se muestre de espaldas
+        // Fijar la escala inicial según el slider (valor "1" por defecto, se puede ajustar luego)
+        model.scale.set(parseFloat(document.getElementById('scaleSlider').value),
+                        parseFloat(document.getElementById('scaleSlider').value),
+                        parseFloat(document.getElementById('scaleSlider').value));
+        // Rotar 180° en Y para que se cargue de espaldas
         model.rotation.y = Math.PI;
         if (object.animations && object.animations.length) {
           mixer = new THREE.AnimationMixer(object);
-          // Suponemos que el primer clip es idle
+          // Se toma el primer clip como animación idle y se reproduce en bucle
           idleAction = mixer.clipAction(object.animations[0]);
           idleAction.play();
-          // Si tienes una animación de correr, podrías asignarla a runAction
-          // runAction = mixer.clipAction(object.animations[1]); // Ejemplo
         }
+        // Listener para activar casting al hacer clic
+        container.addEventListener('click', onCastingClick, false);
       },
       (xhr) => { console.log(`Idle: ${(xhr.loaded / xhr.total * 100).toFixed(0)}% cargado`); },
       (error) => { console.error('Error al cargar GreatSwordIdle.fbx', error); }
     );
 
-    // Manejo de entradas de teclado
+    // Función para activar la animación de Casting (GreatSwordCasting.fbx)
+    function onCastingClick() {
+      if (!castingActive && mixer && idleAction) {
+        castingActive = true;
+        fbxLoader.load(
+          './GreatSwordCasting.fbx',
+          (castingObject) => {
+            if (castingObject.animations && castingObject.animations.length) {
+              castingAction = mixer.clipAction(castingObject.animations[0]);
+              castingAction.setLoop(THREE.LoopOnce, 1);
+              castingAction.clampWhenFinished = true;
+              castingAction.reset();
+              idleAction.crossFadeTo(castingAction, 0.5, false);
+              castingAction.play();
+            }
+          },
+          (xhr) => { console.log(`Casting: ${(xhr.loaded / xhr.total * 100).toFixed(0)}% cargado`); },
+          (error) => { console.error('Error al cargar GreatSwordCasting.fbx', error); }
+        );
+      }
+    }
+
+    // Eventos para el slider de escala
+    const scaleSlider = document.getElementById('scaleSlider');
+    const scaleValue = document.getElementById('scaleValue');
+    scaleSlider.addEventListener('input', (event) => {
+      const value = parseFloat(event.target.value);
+      scaleValue.textContent = value;
+      if (model) {
+        model.scale.set(value, value, value);
+      }
+    });
+
+    // Eventos de teclado para movimiento WASD
     window.addEventListener('keydown', (e) => {
       switch(e.code) {
         case 'KeyW': moveForward = true; break;
         case 'KeyS': moveBackward = true; break;
         case 'KeyA': moveLeft = true; break;
         case 'KeyD': moveRight = true; break;
-      }
-      // Si se presiona una tecla de movimiento, activar animación de correr si está disponible
-      if ((moveForward || moveBackward || moveLeft || moveRight) && runAction && !runAction.isRunning()) {
-        idleAction.crossFadeTo(runAction, 0.2, false);
-        runAction.play();
       }
     });
 
@@ -137,15 +200,9 @@
         case 'KeyA': moveLeft = false; break;
         case 'KeyD': moveRight = false; break;
       }
-      // Si se sueltan las teclas de movimiento, volver a idle si se tiene runAction
-      if (!moveForward && !moveBackward && !moveLeft && !moveRight && runAction) {
-        runAction.crossFadeTo(idleAction, 0.2, false);
-        idleAction.reset();
-        idleAction.play();
-      }
     });
 
-    // Actualizar la posición del modelo
+    // Función para actualizar el movimiento del modelo
     function updateMovement() {
       if (!model) return;
       const moveDir = new THREE.Vector3();
@@ -154,18 +211,49 @@
       if (moveLeft) moveDir.x -= 1;
       if (moveRight) moveDir.x += 1;
       moveDir.normalize();
+      // Actualizar la posición del modelo según la dirección y velocidad
       model.position.add(moveDir.multiplyScalar(speed));
     }
 
+    // Elementos de la UI para mostrar posición de cámara y offset
+    const offsetValue = document.getElementById('offsetValue');
+    const camX = document.getElementById('camX');
+    const camY = document.getElementById('camY');
+    const camZ = document.getElementById('camZ');
+
+    // Loop de animación
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
       if (mixer) mixer.update(delta);
+      
+      // Actualizar el movimiento del modelo
       updateMovement();
+      
+      // Actualizar la UI: offset (distancia entre cámara y target) y posición de la cámara
+      const offset = camera.position.distanceTo(controls.target);
+      offsetValue.textContent = offset.toFixed(2);
+      camX.textContent = camera.position.x.toFixed(2);
+      camY.textContent = camera.position.y.toFixed(2);
+      camZ.textContent = camera.position.z.toFixed(2);
+      
+      // Verificar si la animación de casting ha terminado y volver a idle
+      if (castingActive && castingAction) {
+        const clipDuration = castingAction.getClip().duration;
+        if (castingAction.time >= clipDuration - 0.1) {
+          console.log("Casting terminó: volviendo a Idle");
+          castingAction.stop();
+          idleAction.reset();
+          idleAction.play();
+          castingActive = false;
+        }
+      }
+      
       renderer.render(scene, camera);
     }
     animate();
 
+    // Ajustar el tamaño al redimensionar la ventana
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
