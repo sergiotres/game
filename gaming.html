@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Visor 3D con Three.js (GLB o FBX)</title>
+  <title>Visor 3D con Three.js (GLB o FBX con Animación)</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -70,7 +70,11 @@
     scene.add(plane);
 
     // Variable para elegir el tipo de modelo: 'glb' o 'fbx'
-    const modelType = 'fbx'; // Cambia a 'fbx' para cargar un archivo FBX
+    const modelType = 'fbx'; // Cambia a 'glb' para cargar un archivo GLB
+
+    // Variables para animación (AnimationMixer y reloj)
+    let mixer = null;
+    const clock = new THREE.Clock();
 
     // Función común para configurar el modelo una vez cargado
     function setupModel(model) {
@@ -89,6 +93,13 @@
       loader.load(
         './character2.glb', // Asegúrate de que el archivo esté en la ruta correcta
         (gltf) => {
+          // Si el GLB tiene animaciones, se pueden reproducir de forma similar:
+          if (gltf.animations && gltf.animations.length) {
+            mixer = new THREE.AnimationMixer(gltf.scene);
+            gltf.animations.forEach((clip) => {
+              mixer.clipAction(clip).play();
+            });
+          }
           setupModel(gltf.scene);
         },
         (xhr) => {
@@ -103,6 +114,13 @@
       loader.load(
         './GreatSwordCasting.fbx', // Asegúrate de que el archivo esté en la ruta correcta
         (object) => {
+          // Si el FBX contiene animaciones, las reproducimos:
+          if (object.animations && object.animations.length) {
+            mixer = new THREE.AnimationMixer(object);
+            // Por ejemplo, reproducir la primera animación:
+            const action = mixer.clipAction(object.animations[0]);
+            action.play();
+          }
           setupModel(object);
         },
         (xhr) => {
@@ -126,6 +144,8 @@
     // Función de animación
     function animate() {
       requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      if (mixer) mixer.update(delta);
       renderer.render(scene, camera);
     }
     animate();
