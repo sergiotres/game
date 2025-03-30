@@ -60,9 +60,9 @@
     let mixer = null;
     let idleAction = null;
     let castingAction = null;
-    let model = null; // Modelo que contiene la animación idle
+    let model = null; // Modelo con la animación idle
     const clock = new THREE.Clock();
-    let castingActive = false; // Indica si la animación de casting está en curso
+    let castingActive = false; // Indica si se está reproduciendo casting
 
     // Función para configurar sombras en el modelo
     function setupModel(object) {
@@ -75,7 +75,7 @@
       scene.add(object);
     }
 
-    // Creamos un FBXLoader (usado para ambos archivos)
+    // Creamos un FBXLoader para cargar ambos archivos
     const fbxLoader = new FBXLoader();
 
     // Cargar el FBX de Idle (por defecto)
@@ -86,11 +86,11 @@
         setupModel(model);
         if (object.animations && object.animations.length) {
           mixer = new THREE.AnimationMixer(object);
-          // Se toma el primer clip como animación idle (en bucle)
+          // Se toma el primer clip como animación idle y se reproduce en bucle
           idleAction = mixer.clipAction(object.animations[0]);
           idleAction.play();
         }
-        // Una vez cargado idle, se añade el listener para activar casting al hacer click
+        // Una vez cargado idle, se añade el listener para activar casting al hacer clic
         container.addEventListener('click', onCastingClick, false);
       },
       (xhr) => {
@@ -101,7 +101,7 @@
       }
     );
 
-    // Función que se ejecuta al hacer click para activar la animación de Casting
+    // Función que se ejecuta al hacer clic para activar la animación de Casting
     function onCastingClick() {
       if (!castingActive && mixer && idleAction) {
         castingActive = true;
@@ -115,7 +115,7 @@
               castingAction.setLoop(THREE.LoopOnce, 1);
               castingAction.clampWhenFinished = true;
               castingAction.reset();
-              // Transición de idle a casting (crossfade de 0.5 segundos)
+              // Crossfade de idle a casting (transición de 0.5 segundos)
               idleAction.crossFadeTo(castingAction, 0.5, false);
               castingAction.play();
             }
@@ -130,17 +130,19 @@
       }
     }
 
-    // Listener de teclado: al presionar la tecla E se fuerza la animación idle
+    // Listener para la tecla E: fuerza la animación idle
     window.addEventListener('keydown', (event) => {
       if (event.code === 'KeyE' && mixer && idleAction) {
-        // Si se está reproduciendo casting, se detiene y se vuelve a idle
+        console.log("Tecla E presionada: forzando animación Idle");
+        // Si hay una acción de casting activa, se detiene
         if (castingActive && castingAction) {
           castingAction.stop();
         }
+        // Forzar la idle: se reinicia y se reproduce
         idleAction.reset();
+        idleAction.enabled = true;
         idleAction.play();
         castingActive = false;
-        console.log("Tecla E presionada: activando Idle");
       }
     });
 
@@ -150,17 +152,15 @@
       const delta = clock.getDelta();
       if (mixer) mixer.update(delta);
       
-      // Si se está reproduciendo casting, comprobamos si ha terminado (por duración)
+      // En cada frame, si se está reproduciendo casting, comprobamos si ha terminado
       if (castingActive && castingAction) {
         const clipDuration = castingAction.getClip().duration;
-        // Si el tiempo transcurrido de castingAction se acerca a la duración, 
-        // forzamos el retorno a idle.
         if (castingAction.time >= clipDuration - 0.1) {
+          console.log("Casting terminó: volviendo a Idle");
           castingAction.stop();
           idleAction.reset();
           idleAction.play();
           castingActive = false;
-          console.log("Casting terminó: volviendo a Idle");
         }
       }
       
