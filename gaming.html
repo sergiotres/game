@@ -25,10 +25,8 @@
     import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/controls/OrbitControls.js';
     import { FBXLoader } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/loaders/FBXLoader.js';
 
-    // Selecciona el contenedor
+    // Contenedor, escena, cámara y renderer
     const container = document.getElementById('container');
-
-    // Escena, cámara y renderer
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xaaaaaa);
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -64,9 +62,9 @@
     let castingAction = null;
     let model = null; // Modelo de idle
     const clock = new THREE.Clock();
-    let castingLoaded = false; // Para que casting se cargue solo una vez
+    let castingLoaded = false; // Para evitar cargar casting varias veces
 
-    // Función para configurar las sombras en el modelo
+    // Función para configurar sombras en el modelo
     function setupModel(object) {
       object.traverse(child => {
         if (child.isMesh) {
@@ -77,7 +75,7 @@
       scene.add(object);
     }
 
-    // Creamos un FBXLoader (lo usaremos para ambos archivos)
+    // Creamos un FBXLoader que usaremos para ambos archivos
     const fbxLoader = new FBXLoader();
 
     // Cargar el FBX de Idle (por defecto)
@@ -88,11 +86,11 @@
         setupModel(model);
         if (object.animations && object.animations.length) {
           mixer = new THREE.AnimationMixer(object);
-          // Se toma el primer clip como animación idle
+          // Se toma el primer clip como animación idle y se reproduce en loop
           idleAction = mixer.clipAction(object.animations[0]);
           idleAction.play();
         }
-        // Una vez que idle está cargado, se añade el listener para el click
+        // Una vez cargado idle, se añade el listener para el click
         container.addEventListener('click', onCastingClick, false);
       },
       (xhr) => {
@@ -103,7 +101,20 @@
       }
     );
 
-    // Función que se ejecuta al hacer click para cargar la animación de casting
+    // Añadir listener de finished al mixer para detectar cuando finaliza la animación de casting
+    function onCastingFinished(event) {
+      if (event.action === castingAction) {
+        // Realizar crossfade de casting a idle y reactivar idle
+        castingAction.crossFadeTo(idleAction, 0.5, false);
+        idleAction.play();
+        // Permitir cargar casting de nuevo en futuros clicks
+        castingLoaded = false;
+        // Eliminar listener para evitar llamadas múltiples (opcional)
+        mixer.removeEventListener('finished', onCastingFinished);
+      }
+    }
+
+    // Función que se ejecuta al hacer click para cargar la animación de Casting
     function onCastingClick() {
       if (!castingLoaded && mixer && idleAction) {
         castingLoaded = true;
@@ -114,7 +125,12 @@
             if (castingObject.animations && castingObject.animations.length) {
               // Se toma el primer clip de la animación de casting
               castingAction = mixer.clipAction(castingObject.animations[0]);
+              // Configurar para que se reproduzca solo 1 vez
+              castingAction.setLoop(THREE.LoopOnce, 1);
+              castingAction.clampWhenFinished = true;
               castingAction.reset();
+              // Escuchar el evento "finished" para cuando termine casting
+              mixer.addEventListener('finished', onCastingFinished);
               // Realizar crossfade de idle a casting (transición de 0.5 segundos)
               idleAction.crossFadeTo(castingAction, 0.5, false);
               castingAction.play();
