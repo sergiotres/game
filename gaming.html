@@ -2,11 +2,11 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Control de Escala, Offset y Posición de Cámara</title>
+  <title>Juego de Mazmorras - Valores Fijos</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
-    /* Estilo para la interfaz de usuario */
+    /* Estilos para la interfaz de usuario */
     #ui {
       position: absolute;
       top: 10px;
@@ -33,48 +33,59 @@
   <div id="ui">
     <div>
       <label for="scaleSlider">Escala Modelo:</label>
-      <input type="range" id="scaleSlider" min="0.1" max="2" step="0.1" value="1">
-      <span id="scaleValue">1</span>
+      <input type="range" id="scaleSlider" min="0.1" max="2" step="0.1" value="0.1">
+      <span id="scaleValue">0.1</span>
     </div>
     <div>
       <label>Offset (distancia):</label>
-      <span id="offsetValue">0</span>
+      <span id="offsetValue">32.32</span>
     </div>
     <div>
       <label>Cam X:</label>
-      <span id="camX">0</span>
+      <span id="camX">-0.44</span>
     </div>
     <div>
       <label>Cam Y:</label>
-      <span id="camY">0</span>
+      <span id="camY">21.03</span>
     </div>
     <div>
       <label>Cam Z:</label>
-      <span id="camZ">0</span>
+      <span id="camZ">28.95</span>
     </div>
   </div>
 
   <div id="container"></div>
   
-  <!-- Script de módulo para Three.js, OrbitControls y FBXLoader -->
+  <!-- Script de módulo para importar Three.js, OrbitControls y FBXLoader -->
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/controls/OrbitControls.js';
     import { FBXLoader } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/loaders/FBXLoader.js';
 
-    // Elementos básicos: contenedor, escena, cámara y renderer
+    // Elementos básicos
     const container = document.getElementById('container');
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xaaaaaa);
+    
+    // Fijamos la posición de la cámara
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 2, 5);
+    camera.position.set(-0.44, 21.03, 28.95);
+    
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    // Controles de cámara
+    // Configuramos OrbitControls
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 1, 0);
+    // Calculamos el target para que la distancia desde la cámara sea 32.32
+    // Vector desde origen a la cámara:
+    const camVec = new THREE.Vector3(-0.44, 21.03, 28.95);
+    const camDist = camVec.length(); // Aproximadamente 35.78
+    const normalized = camVec.clone().normalize(); // Dirección de la cámara
+    // Queremos que la distancia del target a la cámara sea 32.32, así que:
+    const target = camVec.clone().sub(normalized.multiplyScalar(32.32));
+    // target ≈ (-0.043, 2.04, 2.78)
+    controls.target.copy(target);
     controls.update();
 
     // Luces
@@ -97,11 +108,11 @@
     let mixer = null;
     let idleAction = null;
     let castingAction = null;
-    let model = null; // Modelo con animación idle
+    let model = null; // Modelo (idle)
     const clock = new THREE.Clock();
     let castingActive = false;
 
-    // Función para configurar sombras en el modelo
+    // Función para configurar sombras
     function setupModel(object) {
       object.traverse(child => {
         if (child.isMesh) {
@@ -112,21 +123,23 @@
       scene.add(object);
     }
 
-    // Crear un FBXLoader para cargar ambos archivos
+    // FBXLoader para cargar ambos archivos
     const fbxLoader = new FBXLoader();
 
-    // Cargar el FBX de Idle (por defecto)
+    // Cargar el FBX de Idle y fijar la escala en 0.1
     fbxLoader.load(
       './GreatSwordIdle.fbx',
       (object) => {
         model = object;
         setupModel(model);
+        // Fijar la escala del modelo a 0.1 en cada eje
+        model.scale.set(0.1, 0.1, 0.1);
         if (object.animations && object.animations.length) {
           mixer = new THREE.AnimationMixer(object);
           idleAction = mixer.clipAction(object.animations[0]);
           idleAction.play();
         }
-        // Listener para activar casting al hacer clic
+        // Activar casting al hacer clic
         container.addEventListener('click', onCastingClick, false);
       },
       (xhr) => {
@@ -163,7 +176,13 @@
       }
     }
 
-    // Slider para la escala del modelo
+    // Elementos de la UI para mostrar valores de la cámara
+    const offsetValue = document.getElementById('offsetValue');
+    const camX = document.getElementById('camX');
+    const camY = document.getElementById('camY');
+    const camZ = document.getElementById('camZ');
+
+    // Slider para la escala (ya configurado)
     const scaleSlider = document.getElementById('scaleSlider');
     const scaleValue = document.getElementById('scaleValue');
     scaleSlider.addEventListener('input', (event) => {
@@ -174,26 +193,20 @@
       }
     });
 
-    // Elementos para mostrar la posición de la cámara y el offset
-    const offsetValue = document.getElementById('offsetValue');
-    const camX = document.getElementById('camX');
-    const camY = document.getElementById('camY');
-    const camZ = document.getElementById('camZ');
-
     // Loop de animación
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
       if (mixer) mixer.update(delta);
-
-      // Actualizar la interfaz de usuario con la posición de la cámara y el offset
+      
+      // Actualizar la UI con la posición de la cámara y offset
       const offset = camera.position.distanceTo(controls.target);
       offsetValue.textContent = offset.toFixed(2);
       camX.textContent = camera.position.x.toFixed(2);
       camY.textContent = camera.position.y.toFixed(2);
       camZ.textContent = camera.position.z.toFixed(2);
-
-      // Si se está reproduciendo casting, comprobar si terminó para volver a idle
+      
+      // Si se está reproduciendo casting, verificar si terminó y volver a idle
       if (castingActive && castingAction) {
         const clipDuration = castingAction.getClip().duration;
         if (castingAction.time >= clipDuration - 0.1) {
