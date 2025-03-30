@@ -84,21 +84,7 @@
     }
 
     // Cargar el modelo según el tipo
-    if (modelType === 'glb') {
-      const loader = new GLTFLoader();
-      loader.load(
-        './character2.glb', // Asegúrate de que el archivo esté en la ruta correcta
-        (gltf) => {
-          setupModel(gltf.scene);
-        },
-        (xhr) => {
-          console.log((xhr.loaded / xhr.total * 100) + '% cargado');
-        },
-        (error) => {
-          console.error('Ocurrió un error al cargar el modelo GLB', error);
-        }
-      );
-    } else if (modelType === 'fbx') {
+  if (modelType === 'fbx') {
       const loader = new FBXLoader();
       loader.load(
         './GreatSwordCasting.fbx', // Asegúrate de que el archivo esté en la ruta correcta
