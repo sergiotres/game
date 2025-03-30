@@ -35,7 +35,7 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    // Controles
+    // Controles de cámara
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 1, 0);
     controls.update();
@@ -60,9 +60,9 @@
     let mixer = null;
     let idleAction = null;
     let castingAction = null;
-    let model = null; // Modelo con animación idle
+    let model = null; // Modelo que contiene la animación idle
     const clock = new THREE.Clock();
-    let castingActive = false; // Indica si se está reproduciendo casting
+    let castingActive = false; // Indica si la animación de casting está en curso
 
     // Función para configurar sombras en el modelo
     function setupModel(object) {
@@ -86,7 +86,7 @@
         setupModel(model);
         if (object.animations && object.animations.length) {
           mixer = new THREE.AnimationMixer(object);
-          // Se toma el primer clip como animación idle, en bucle
+          // Se toma el primer clip como animación idle (en bucle)
           idleAction = mixer.clipAction(object.animations[0]);
           idleAction.play();
         }
@@ -115,7 +115,7 @@
               castingAction.setLoop(THREE.LoopOnce, 1);
               castingAction.clampWhenFinished = true;
               castingAction.reset();
-              // Crossfade de idle a casting (0.5 segundos)
+              // Transición de idle a casting (crossfade de 0.5 segundos)
               idleAction.crossFadeTo(castingAction, 0.5, false);
               castingAction.play();
             }
@@ -130,22 +130,37 @@
       }
     }
 
+    // Listener de teclado: al presionar la tecla E se fuerza la animación idle
+    window.addEventListener('keydown', (event) => {
+      if (event.code === 'KeyE' && mixer && idleAction) {
+        // Si se está reproduciendo casting, se detiene y se vuelve a idle
+        if (castingActive && castingAction) {
+          castingAction.stop();
+        }
+        idleAction.reset();
+        idleAction.play();
+        castingActive = false;
+        console.log("Tecla E presionada: activando Idle");
+      }
+    });
+
     // Loop de animación
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
       if (mixer) mixer.update(delta);
       
-      // Si se está reproduciendo casting, comprobar si ya terminó
+      // Si se está reproduciendo casting, comprobamos si ha terminado (por duración)
       if (castingActive && castingAction) {
-        // Si el tiempo transcurrido de castingAction es mayor o igual que su duración (con margen)
         const clipDuration = castingAction.getClip().duration;
+        // Si el tiempo transcurrido de castingAction se acerca a la duración, 
+        // forzamos el retorno a idle.
         if (castingAction.time >= clipDuration - 0.1) {
-          // Crossfade de casting a idle (0.5 s) y reactivar idle
-          castingAction.crossFadeTo(idleAction, 0.5, false);
+          castingAction.stop();
           idleAction.reset();
           idleAction.play();
           castingActive = false;
+          console.log("Casting terminó: volviendo a Idle");
         }
       }
       
