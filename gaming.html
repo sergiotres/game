@@ -2,11 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Juego de Mazmorras - Valores Fijos</title>
+  <title>Movimiento y Animación con WASD</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
-    /* Estilos para la interfaz de usuario */
     #ui {
       position: absolute;
       top: 10px;
@@ -17,9 +16,7 @@
       font-family: sans-serif;
       z-index: 100;
     }
-    #ui div { margin-bottom: 5px; }
   </style>
-  <!-- Import map para que "three" se resuelva correctamente -->
   <script type="importmap">
     {
       "imports": {
@@ -29,34 +26,11 @@
   </script>
 </head>
 <body>
-  <!-- Interfaz de usuario -->
   <div id="ui">
-    <div>
-      <label for="scaleSlider">Escala Modelo:</label>
-      <input type="range" id="scaleSlider" min="0.1" max="2" step="0.1" value="0.1">
-      <span id="scaleValue">0.1</span>
-    </div>
-    <div>
-      <label>Offset (distancia):</label>
-      <span id="offsetValue">32.32</span>
-    </div>
-    <div>
-      <label>Cam X:</label>
-      <span id="camX">-0.44</span>
-    </div>
-    <div>
-      <label>Cam Y:</label>
-      <span id="camY">21.03</span>
-    </div>
-    <div>
-      <label>Cam Z:</label>
-      <span id="camZ">28.95</span>
-    </div>
+    <p>Usa WASD para mover el personaje</p>
   </div>
-
   <div id="container"></div>
   
-  <!-- Script de módulo para importar Three.js, OrbitControls y FBXLoader -->
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/controls/OrbitControls.js';
@@ -66,37 +40,24 @@
     const container = document.getElementById('container');
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xaaaaaa);
-    
-    // Fijamos la posición de la cámara
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(-0.44, 21.03, 28.95);
-    
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    // Configuramos OrbitControls
+    // Controles de cámara (OrbitControls para la vista)
     const controls = new OrbitControls(camera, renderer.domElement);
-    // Calculamos el target para que la distancia desde la cámara sea 32.32
-    // Vector desde origen a la cámara:
-    const camVec = new THREE.Vector3(-0.44, 21.03, 28.95);
-    const camDist = camVec.length(); // Aproximadamente 35.78
-    const normalized = camVec.clone().normalize(); // Dirección de la cámara
-    // Queremos que la distancia del target a la cámara sea 32.32, así que:
-    const target = camVec.clone().sub(normalized.multiplyScalar(32.32));
-    // target ≈ (-0.043, 2.04, 2.78)
-    controls.target.copy(target);
+    controls.target.set(0, 1, 0);
     controls.update();
 
-    // Luces
+    // Luces y suelo
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
     hemiLight.position.set(0, 50, 0);
     scene.add(hemiLight);
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
     dirLight.position.set(10, 10, 10);
     scene.add(dirLight);
-
-    // Suelo
     const planeGeometry = new THREE.PlaneGeometry(200, 200);
     const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 });
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
@@ -107,10 +68,13 @@
     // Variables para el modelo y animaciones
     let mixer = null;
     let idleAction = null;
-    let castingAction = null;
-    let model = null; // Modelo (idle)
+    let runAction = null;
+    let model = null;
     const clock = new THREE.Clock();
-    let castingActive = false;
+    
+    // Variables de movimiento
+    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+    const speed = 0.1; // Velocidad de movimiento
 
     // Función para configurar sombras
     function setupModel(object) {
@@ -123,106 +87,85 @@
       scene.add(object);
     }
 
-    // FBXLoader para cargar ambos archivos
     const fbxLoader = new FBXLoader();
-
-    // Cargar el FBX de Idle y fijar la escala en 0.1
+    // Cargar el modelo Idle (por defecto)
     fbxLoader.load(
-      './GreatSwordIdle.fbx',
+      './GreatSwordIdle.fbx', // Asegúrate de que el archivo esté en la ruta correcta
       (object) => {
         model = object;
         setupModel(model);
-        // Fijar la escala del modelo a 0.1 en cada eje
+        // Ajustar la escala, si es necesario (por ejemplo 0.1)
         model.scale.set(0.1, 0.1, 0.1);
         if (object.animations && object.animations.length) {
           mixer = new THREE.AnimationMixer(object);
+          // Se asume que el primer clip es idle
           idleAction = mixer.clipAction(object.animations[0]);
           idleAction.play();
+          // Si dispones de una animación de correr en el mismo archivo, puede ser otro clip:
+          // runAction = mixer.clipAction(object.animations[1]);
+          // O puedes cargarla por separado con otro FBXLoader.load() similar.
+          // Aquí asumiremos que tienes runAction disponible.
         }
-        // Activar casting al hacer clic
-        container.addEventListener('click', onCastingClick, false);
       },
-      (xhr) => {
-        console.log(`Idle: ${(xhr.loaded / xhr.total * 100).toFixed(0)}% cargado`);
-      },
-      (error) => {
-        console.error('Error al cargar GreatSwordIdle.fbx', error);
-      }
+      (xhr) => { console.log(`Idle: ${(xhr.loaded / xhr.total * 100).toFixed(0)}% cargado`); },
+      (error) => { console.error('Error al cargar GreatSwordIdle.fbx', error); }
     );
 
-    // Función para activar la animación de Casting
-    function onCastingClick() {
-      if (!castingActive && mixer && idleAction) {
-        castingActive = true;
-        fbxLoader.load(
-          './GreatSwordCasting.fbx',
-          (castingObject) => {
-            if (castingObject.animations && castingObject.animations.length) {
-              castingAction = mixer.clipAction(castingObject.animations[0]);
-              castingAction.setLoop(THREE.LoopOnce, 1);
-              castingAction.clampWhenFinished = true;
-              castingAction.reset();
-              idleAction.crossFadeTo(castingAction, 0.5, false);
-              castingAction.play();
-            }
-          },
-          (xhr) => {
-            console.log(`Casting: ${(xhr.loaded / xhr.total * 100).toFixed(0)}% cargado`);
-          },
-          (error) => {
-            console.error('Error al cargar GreatSwordCasting.fbx', error);
-          }
-        );
+    // Manejo de entradas de teclado para movimiento
+    window.addEventListener('keydown', (e) => {
+      switch(e.code) {
+        case 'KeyW': moveForward = true; break;
+        case 'KeyS': moveBackward = true; break;
+        case 'KeyA': moveLeft = true; break;
+        case 'KeyD': moveRight = true; break;
       }
-    }
-
-    // Elementos de la UI para mostrar valores de la cámara
-    const offsetValue = document.getElementById('offsetValue');
-    const camX = document.getElementById('camX');
-    const camY = document.getElementById('camY');
-    const camZ = document.getElementById('camZ');
-
-    // Slider para la escala (ya configurado)
-    const scaleSlider = document.getElementById('scaleSlider');
-    const scaleValue = document.getElementById('scaleValue');
-    scaleSlider.addEventListener('input', (event) => {
-      const value = parseFloat(event.target.value);
-      scaleValue.textContent = value;
-      if (model) {
-        model.scale.set(value, value, value);
+      // Si se presiona alguna tecla de movimiento, activar animación de correr si existe
+      if ((moveForward || moveBackward || moveLeft || moveRight) && runAction && !runAction.isRunning()) {
+        // Transición de idle a correr
+        idleAction.crossFadeTo(runAction, 0.2, false);
+        runAction.play();
       }
     });
+
+    window.addEventListener('keyup', (e) => {
+      switch(e.code) {
+        case 'KeyW': moveForward = false; break;
+        case 'KeyS': moveBackward = false; break;
+        case 'KeyA': moveLeft = false; break;
+        case 'KeyD': moveRight = false; break;
+      }
+      // Si se sueltan todas las teclas de movimiento, volver a idle
+      if (!moveForward && !moveBackward && !moveLeft && !moveRight && runAction) {
+        runAction.crossFadeTo(idleAction, 0.2, false);
+        idleAction.reset();
+        idleAction.play();
+      }
+    });
+
+    // Actualizar la posición del modelo en el loop
+    function updateMovement() {
+      if (!model) return;
+      const moveDir = new THREE.Vector3();
+      if (moveForward) moveDir.z -= 1;
+      if (moveBackward) moveDir.z += 1;
+      if (moveLeft) moveDir.x -= 1;
+      if (moveRight) moveDir.x += 1;
+      moveDir.normalize();
+      // Mueve el modelo según la velocidad
+      model.position.add(moveDir.multiplyScalar(speed));
+    }
 
     // Loop de animación
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
       if (mixer) mixer.update(delta);
-      
-      // Actualizar la UI con la posición de la cámara y offset
-      const offset = camera.position.distanceTo(controls.target);
-      offsetValue.textContent = offset.toFixed(2);
-      camX.textContent = camera.position.x.toFixed(2);
-      camY.textContent = camera.position.y.toFixed(2);
-      camZ.textContent = camera.position.z.toFixed(2);
-      
-      // Si se está reproduciendo casting, verificar si terminó y volver a idle
-      if (castingActive && castingAction) {
-        const clipDuration = castingAction.getClip().duration;
-        if (castingAction.time >= clipDuration - 0.1) {
-          console.log("Casting terminó: volviendo a Idle");
-          castingAction.stop();
-          idleAction.reset();
-          idleAction.play();
-          castingActive = false;
-        }
-      }
-      
+      updateMovement();
       renderer.render(scene, camera);
     }
     animate();
 
-    // Ajustar tamaño al redimensionar la ventana
+    // Ajustar tamaño al redimensionar
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
