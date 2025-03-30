@@ -56,13 +56,13 @@
     plane.receiveShadow = true;
     scene.add(plane);
 
-    // Variables para el modelo y las animaciones
+    // Variables para el modelo y animaciones
     let mixer = null;
     let idleAction = null;
     let castingAction = null;
-    let model = null; // Modelo con animación idle
+    let model = null; // Modelo que contiene la animación idle
     const clock = new THREE.Clock();
-    let castingLoaded = false; // Para evitar múltiples activaciones
+    let castingLoaded = false; // Para evitar activar casting múltiples veces
 
     // Función para configurar sombras en el modelo
     function setupModel(object) {
@@ -75,7 +75,7 @@
       scene.add(object);
     }
 
-    // Creamos un FBXLoader para cargar ambos archivos
+    // Creamos un FBXLoader (usado para ambos archivos)
     const fbxLoader = new FBXLoader();
 
     // Cargar el FBX de Idle (por defecto)
@@ -86,7 +86,7 @@
         setupModel(model);
         if (object.animations && object.animations.length) {
           mixer = new THREE.AnimationMixer(object);
-          // Se toma el primer clip como animación idle y se reproduce en loop
+          // Se toma el primer clip como animación idle y se reproduce en bucle
           idleAction = mixer.clipAction(object.animations[0]);
           idleAction.play();
         }
@@ -111,18 +111,21 @@
             if (castingObject.animations && castingObject.animations.length) {
               // Se toma el primer clip de la animación de casting
               castingAction = mixer.clipAction(castingObject.animations[0]);
-              // Configurar para que se reproduzca solo una vez
+              // Configurar para reproducir solo una vez
               castingAction.setLoop(THREE.LoopOnce, 1);
               castingAction.clampWhenFinished = true;
               castingAction.reset();
               // Transición de idle a casting (0.5 segundos de crossfade)
               idleAction.crossFadeTo(castingAction, 0.5, false);
               castingAction.play();
-              // Obtener la duración del clip (en segundos)
+              // Obtener la duración del clip de casting en segundos
               const duration = castingAction.getClip().duration;
-              // Programar el retorno a idle cuando termine la animación de casting
+              console.log("Casting duration:", duration);
+              // Programar el retorno a idle una vez que termine casting
               setTimeout(() => {
-                castingAction.crossFadeTo(idleAction, 0.5, false);
+                // Detenemos casting y forzamos el reinicio de idle
+                castingAction.stop();
+                idleAction.reset();
                 idleAction.play();
                 castingLoaded = false;
               }, duration * 1000);
