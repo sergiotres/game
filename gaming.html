@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Visor 3D con Three.js (Módulos - jsDelivr)</title>
+  <title>Visor 3D con Three.js (GLB o FBX)</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -19,13 +19,14 @@
 <body>
   <div id="container"></div>
 
-  <!-- Script de módulo para importar Three.js, OrbitControls y GLTFLoader -->
+  <!-- Script de módulo para importar Three.js, OrbitControls, GLTFLoader y FBXLoader -->
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/controls/OrbitControls.js';
     import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/loaders/GLTFLoader.js';
+    import { FBXLoader } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/loaders/FBXLoader.js';
 
-    // Obtenemos el contenedor
+    // Selecciona el contenedor
     const container = document.getElementById('container');
 
     // Creamos la escena y definimos el color de fondo
@@ -46,7 +47,7 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    // Creamos los controles para mover la cámara
+    // Configuramos los controles para mover la cámara
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 1, 0);
     controls.update();
@@ -68,30 +69,54 @@
     plane.receiveShadow = true;
     scene.add(plane);
 
-    // Cargamos el modelo 3D (.glb) con GLTFLoader
-    const loader = new GLTFLoader();
-    // Asegúrate de que "character2.glb" esté en la misma carpeta o ajusta la ruta
-    loader.load(
-      './character2.glb', 
-      (gltf) => {
-        const model = gltf.scene;
-        model.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-          }
-        });
-        scene.add(model);
-      },
-      (xhr) => {
-        console.log((xhr.loaded / xhr.total * 100) + '% cargado');
-      },
-      (error) => {
-        console.error('Ocurrió un error al cargar el modelo', error);
-      }
-    );
+    // Variable para elegir el tipo de modelo: 'glb' o 'fbx'
+    const modelType = 'glb'; // Cambia a 'fbx' para cargar un archivo FBX
 
-    // Ajusta el tamaño cuando se redimensiona la ventana
+    // Función común para configurar el modelo una vez cargado
+    function setupModel(model) {
+      model.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      scene.add(model);
+    }
+
+    // Cargar el modelo según el tipo
+    if (modelType === 'glb') {
+      const loader = new GLTFLoader();
+      loader.load(
+        './character2.glb', // Asegúrate de que el archivo esté en la ruta correcta
+        (gltf) => {
+          setupModel(gltf.scene);
+        },
+        (xhr) => {
+          console.log((xhr.loaded / xhr.total * 100) + '% cargado');
+        },
+        (error) => {
+          console.error('Ocurrió un error al cargar el modelo GLB', error);
+        }
+      );
+    } else if (modelType === 'fbx') {
+      const loader = new FBXLoader();
+      loader.load(
+        './character2.fbx', // Asegúrate de que el archivo esté en la ruta correcta
+        (object) => {
+          setupModel(object);
+        },
+        (xhr) => {
+          console.log((xhr.loaded / xhr.total * 100) + '% cargado');
+        },
+        (error) => {
+          console.error('Ocurrió un error al cargar el modelo FBX', error);
+        }
+      );
+    } else {
+      console.error('Tipo de modelo no soportado. Usa "glb" o "fbx".');
+    }
+
+    // Ajustar el tamaño cuando se redimensiona la ventana
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
