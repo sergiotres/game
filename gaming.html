@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Movimiento y Animación con WASD</title>
+  <title>Movimiento y Animación con WASD - Personaje de Espaldas</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -41,23 +41,27 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xaaaaaa);
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    // Usamos los valores fijos que definiste
     camera.position.set(-0.44, 21.03, 28.95);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    // Controles de cámara (OrbitControls para la vista)
+    // Controles de cámara
     const controls = new OrbitControls(camera, renderer.domElement);
+    // Se asume que el target ya lo definiste previamente
     controls.target.set(0, 1, 0);
     controls.update();
 
-    // Luces y suelo
+    // Luces
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
     hemiLight.position.set(0, 50, 0);
     scene.add(hemiLight);
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
     dirLight.position.set(10, 10, 10);
     scene.add(dirLight);
+
+    // Suelo
     const planeGeometry = new THREE.PlaneGeometry(200, 200);
     const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 });
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
@@ -74,7 +78,7 @@
     
     // Variables de movimiento
     let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-    const speed = 0.1; // Velocidad de movimiento
+    const speed = 0.1;
 
     // Función para configurar sombras
     function setupModel(object) {
@@ -88,30 +92,30 @@
     }
 
     const fbxLoader = new FBXLoader();
-    // Cargar el modelo Idle (por defecto)
+    // Cargar el modelo Idle
     fbxLoader.load(
-      './GreatSwordIdle.fbx', // Asegúrate de que el archivo esté en la ruta correcta
+      './GreatSwordIdle.fbx',
       (object) => {
         model = object;
         setupModel(model);
-        // Ajustar la escala, si es necesario (por ejemplo 0.1)
+        // Fijar la escala (por ejemplo, 0.1)
         model.scale.set(0.1, 0.1, 0.1);
+        // ROTAR 180° en Y para que se muestre de espaldas
+        model.rotation.y = Math.PI;
         if (object.animations && object.animations.length) {
           mixer = new THREE.AnimationMixer(object);
-          // Se asume que el primer clip es idle
+          // Suponemos que el primer clip es idle
           idleAction = mixer.clipAction(object.animations[0]);
           idleAction.play();
-          // Si dispones de una animación de correr en el mismo archivo, puede ser otro clip:
-          // runAction = mixer.clipAction(object.animations[1]);
-          // O puedes cargarla por separado con otro FBXLoader.load() similar.
-          // Aquí asumiremos que tienes runAction disponible.
+          // Si tienes una animación de correr, podrías asignarla a runAction
+          // runAction = mixer.clipAction(object.animations[1]); // Ejemplo
         }
       },
       (xhr) => { console.log(`Idle: ${(xhr.loaded / xhr.total * 100).toFixed(0)}% cargado`); },
       (error) => { console.error('Error al cargar GreatSwordIdle.fbx', error); }
     );
 
-    // Manejo de entradas de teclado para movimiento
+    // Manejo de entradas de teclado
     window.addEventListener('keydown', (e) => {
       switch(e.code) {
         case 'KeyW': moveForward = true; break;
@@ -119,9 +123,8 @@
         case 'KeyA': moveLeft = true; break;
         case 'KeyD': moveRight = true; break;
       }
-      // Si se presiona alguna tecla de movimiento, activar animación de correr si existe
+      // Si se presiona una tecla de movimiento, activar animación de correr si está disponible
       if ((moveForward || moveBackward || moveLeft || moveRight) && runAction && !runAction.isRunning()) {
-        // Transición de idle a correr
         idleAction.crossFadeTo(runAction, 0.2, false);
         runAction.play();
       }
@@ -134,7 +137,7 @@
         case 'KeyA': moveLeft = false; break;
         case 'KeyD': moveRight = false; break;
       }
-      // Si se sueltan todas las teclas de movimiento, volver a idle
+      // Si se sueltan las teclas de movimiento, volver a idle si se tiene runAction
       if (!moveForward && !moveBackward && !moveLeft && !moveRight && runAction) {
         runAction.crossFadeTo(idleAction, 0.2, false);
         idleAction.reset();
@@ -142,7 +145,7 @@
       }
     });
 
-    // Actualizar la posición del modelo en el loop
+    // Actualizar la posición del modelo
     function updateMovement() {
       if (!model) return;
       const moveDir = new THREE.Vector3();
@@ -151,11 +154,9 @@
       if (moveLeft) moveDir.x -= 1;
       if (moveRight) moveDir.x += 1;
       moveDir.normalize();
-      // Mueve el modelo según la velocidad
       model.position.add(moveDir.multiplyScalar(speed));
     }
 
-    // Loop de animación
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
@@ -165,7 +166,6 @@
     }
     animate();
 
-    // Ajustar tamaño al redimensionar
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
