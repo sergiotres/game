@@ -2,11 +2,11 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Control de Escala, Offset y Animaciones FBX con Three.js</title>
+  <title>Control de Escala, Offset y Posición de Cámara</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
-    /* Estilos para la interfaz de usuario */
+    /* Estilo para la interfaz de usuario */
     #ui {
       position: absolute;
       top: 10px;
@@ -17,6 +17,7 @@
       font-family: sans-serif;
       z-index: 100;
     }
+    #ui div { margin-bottom: 5px; }
   </style>
   <!-- Import map para que "three" se resuelva correctamente -->
   <script type="importmap">
@@ -28,7 +29,7 @@
   </script>
 </head>
 <body>
-  <!-- Interfaz de usuario: Slider para escala y lectura del offset -->
+  <!-- Interfaz de usuario -->
   <div id="ui">
     <div>
       <label for="scaleSlider">Escala Modelo:</label>
@@ -38,6 +39,18 @@
     <div>
       <label>Offset (distancia):</label>
       <span id="offsetValue">0</span>
+    </div>
+    <div>
+      <label>Cam X:</label>
+      <span id="camX">0</span>
+    </div>
+    <div>
+      <label>Cam Y:</label>
+      <span id="camY">0</span>
+    </div>
+    <div>
+      <label>Cam Z:</label>
+      <span id="camZ">0</span>
     </div>
   </div>
 
@@ -84,7 +97,7 @@
     let mixer = null;
     let idleAction = null;
     let castingAction = null;
-    let model = null; // Modelo que contiene la animación idle
+    let model = null; // Modelo con animación idle
     const clock = new THREE.Clock();
     let castingActive = false;
 
@@ -110,11 +123,10 @@
         setupModel(model);
         if (object.animations && object.animations.length) {
           mixer = new THREE.AnimationMixer(object);
-          // Se toma el primer clip como animación idle (en bucle)
           idleAction = mixer.clipAction(object.animations[0]);
           idleAction.play();
         }
-        // Una vez cargado el idle, se añade listener para activar casting al hacer clic
+        // Listener para activar casting al hacer clic
         container.addEventListener('click', onCastingClick, false);
       },
       (xhr) => {
@@ -125,7 +137,7 @@
       }
     );
 
-    // Función que se ejecuta al hacer clic para activar la animación de Casting
+    // Función para activar la animación de Casting
     function onCastingClick() {
       if (!castingActive && mixer && idleAction) {
         castingActive = true;
@@ -137,7 +149,6 @@
               castingAction.setLoop(THREE.LoopOnce, 1);
               castingAction.clampWhenFinished = true;
               castingAction.reset();
-              // Transición de idle a casting (0.5 segundos)
               idleAction.crossFadeTo(castingAction, 0.5, false);
               castingAction.play();
             }
@@ -152,7 +163,7 @@
       }
     }
 
-    // Slider para ajustar la escala del modelo
+    // Slider para la escala del modelo
     const scaleSlider = document.getElementById('scaleSlider');
     const scaleValue = document.getElementById('scaleValue');
     scaleSlider.addEventListener('input', (event) => {
@@ -163,20 +174,26 @@
       }
     });
 
-    // Readout para mostrar el offset (distancia de la cámara al target)
+    // Elementos para mostrar la posición de la cámara y el offset
     const offsetValue = document.getElementById('offsetValue');
+    const camX = document.getElementById('camX');
+    const camY = document.getElementById('camY');
+    const camZ = document.getElementById('camZ');
 
     // Loop de animación
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
       if (mixer) mixer.update(delta);
-      
-      // Actualizar el offset: distancia entre la cámara y el target
+
+      // Actualizar la interfaz de usuario con la posición de la cámara y el offset
       const offset = camera.position.distanceTo(controls.target);
       offsetValue.textContent = offset.toFixed(2);
-      
-      // Comprobar si la animación de casting terminó y volver a idle
+      camX.textContent = camera.position.x.toFixed(2);
+      camY.textContent = camera.position.y.toFixed(2);
+      camZ.textContent = camera.position.z.toFixed(2);
+
+      // Si se está reproduciendo casting, comprobar si terminó para volver a idle
       if (castingActive && castingAction) {
         const clipDuration = castingAction.getClip().duration;
         if (castingAction.time >= clipDuration - 0.1) {
