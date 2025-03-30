@@ -35,7 +35,7 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    // Controles de cámara
+    // Controles
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 1, 0);
     controls.update();
@@ -60,9 +60,9 @@
     let mixer = null;
     let idleAction = null;
     let castingAction = null;
-    let model = null; // Modelo que contiene la animación idle
+    let model = null; // Modelo con animación idle
     const clock = new THREE.Clock();
-    let castingLoaded = false; // Para evitar activar casting múltiples veces
+    let castingActive = false; // Indica si se está reproduciendo casting
 
     // Función para configurar sombras en el modelo
     function setupModel(object) {
@@ -86,7 +86,7 @@
         setupModel(model);
         if (object.animations && object.animations.length) {
           mixer = new THREE.AnimationMixer(object);
-          // Se toma el primer clip como animación idle y se reproduce en bucle
+          // Se toma el primer clip como animación idle, en bucle
           idleAction = mixer.clipAction(object.animations[0]);
           idleAction.play();
         }
@@ -103,8 +103,8 @@
 
     // Función que se ejecuta al hacer click para activar la animación de Casting
     function onCastingClick() {
-      if (!castingLoaded && mixer && idleAction) {
-        castingLoaded = true;
+      if (!castingActive && mixer && idleAction) {
+        castingActive = true;
         fbxLoader.load(
           './GreatSwordCasting.fbx', // Archivo de casting
           (castingObject) => {
@@ -115,20 +115,9 @@
               castingAction.setLoop(THREE.LoopOnce, 1);
               castingAction.clampWhenFinished = true;
               castingAction.reset();
-              // Transición de idle a casting (0.5 segundos de crossfade)
+              // Crossfade de idle a casting (0.5 segundos)
               idleAction.crossFadeTo(castingAction, 0.5, false);
               castingAction.play();
-              // Obtener la duración del clip de casting en segundos
-              const duration = castingAction.getClip().duration;
-              console.log("Casting duration:", duration);
-              // Programar el retorno a idle una vez que termine casting
-              setTimeout(() => {
-                // Detenemos casting y forzamos el reinicio de idle
-                castingAction.stop();
-                idleAction.reset();
-                idleAction.play();
-                castingLoaded = false;
-              }, duration * 1000);
             }
           },
           (xhr) => {
@@ -141,21 +130,35 @@
       }
     }
 
+    // Loop de animación
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      if (mixer) mixer.update(delta);
+      
+      // Si se está reproduciendo casting, comprobar si ya terminó
+      if (castingActive && castingAction) {
+        // Si el tiempo transcurrido de castingAction es mayor o igual que su duración (con margen)
+        const clipDuration = castingAction.getClip().duration;
+        if (castingAction.time >= clipDuration - 0.1) {
+          // Crossfade de casting a idle (0.5 s) y reactivar idle
+          castingAction.crossFadeTo(idleAction, 0.5, false);
+          idleAction.reset();
+          idleAction.play();
+          castingActive = false;
+        }
+      }
+      
+      renderer.render(scene, camera);
+    }
+    animate();
+
     // Ajustar tamaño al redimensionar la ventana
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
-
-    // Loop de animación
-    function animate() {
-      requestAnimationFrame(animate);
-      const delta = clock.getDelta();
-      if (mixer) mixer.update(delta);
-      renderer.render(scene, camera);
-    }
-    animate();
   </script>
 </body>
 </html>
