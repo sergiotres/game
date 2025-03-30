@@ -33,8 +33,9 @@
   <div id="ui">
     <div>
       <label for="scaleSlider">Escala Modelo:</label>
-      <input type="range" id="scaleSlider" min="0.1" max="2" step="0.1" value="1">
-      <span id="scaleValue">1</span>
+      <!-- Valor por defecto 0.1 -->
+      <input type="range" id="scaleSlider" min="0.1" max="2" step="0.1" value="0.1">
+      <span id="scaleValue">0.1</span>
     </div>
     <div>
       <label>Offset (distancia):</label>
@@ -70,7 +71,7 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xaaaaaa);
 
-    // Posición de cámara fijada (ajústala según tus necesidades)
+    // Posición de cámara fijada (valores fijos)
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(-0.44, 21.03, 28.95);
 
@@ -78,9 +79,8 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    // OrbitControls: se actualizará la interfaz con sus valores
+    // OrbitControls: se actualizará la UI con sus valores
     const controls = new OrbitControls(camera, renderer.domElement);
-    // Definir un target fijo (esto afecta el offset)
     controls.target.set(0, 1, 0);
     controls.update();
 
@@ -110,7 +110,7 @@
 
     // Variables para movimiento con WASD
     let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-    const speed = 0.1; // Velocidad de movimiento
+    const speed = 0.1;
 
     // Función para configurar sombras en el modelo
     function setupModel(object) {
@@ -125,16 +125,14 @@
 
     const fbxLoader = new FBXLoader();
 
-    // Cargar el modelo Idle (GreatSwordIdle.fbx)
+    // Cargar el FBX de Idle (GreatSwordIdle.fbx)
     fbxLoader.load(
       './GreatSwordIdle.fbx',
       (object) => {
         model = object;
         setupModel(model);
-        // Fijar la escala inicial según el slider (valor "1" por defecto, se puede ajustar luego)
-        model.scale.set(parseFloat(document.getElementById('scaleSlider').value),
-                        parseFloat(document.getElementById('scaleSlider').value),
-                        parseFloat(document.getElementById('scaleSlider').value));
+        // Fijar la escala inicial a 0.1 (valor por defecto del slider)
+        model.scale.set(0.1, 0.1, 0.1);
         // Rotar 180° en Y para que se cargue de espaldas
         model.rotation.y = Math.PI;
         if (object.animations && object.animations.length) {
@@ -211,7 +209,6 @@
       if (moveLeft) moveDir.x -= 1;
       if (moveRight) moveDir.x += 1;
       moveDir.normalize();
-      // Actualizar la posición del modelo según la dirección y velocidad
       model.position.add(moveDir.multiplyScalar(speed));
     }
 
@@ -227,17 +224,17 @@
       const delta = clock.getDelta();
       if (mixer) mixer.update(delta);
       
-      // Actualizar el movimiento del modelo
+      // Actualizar movimiento del modelo
       updateMovement();
       
-      // Actualizar la UI: offset (distancia entre cámara y target) y posición de la cámara
+      // Actualizar la UI con la posición de la cámara y el offset
       const offset = camera.position.distanceTo(controls.target);
       offsetValue.textContent = offset.toFixed(2);
       camX.textContent = camera.position.x.toFixed(2);
       camY.textContent = camera.position.y.toFixed(2);
       camZ.textContent = camera.position.z.toFixed(2);
       
-      // Verificar si la animación de casting ha terminado y volver a idle
+      // Si se está reproduciendo casting, comprobar si terminó y volver a idle
       if (castingActive && castingAction) {
         const clipDuration = castingAction.getClip().duration;
         if (castingAction.time >= clipDuration - 0.1) {
@@ -253,7 +250,7 @@
     }
     animate();
 
-    // Ajustar el tamaño al redimensionar la ventana
+    // Ajustar tamaño al redimensionar la ventana
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
