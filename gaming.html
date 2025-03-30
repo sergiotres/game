@@ -62,11 +62,11 @@
     let mixer = null;
     let idleAction = null;
     let castingAction = null;
-    let model; // guardaremos el modelo con la animación idle
+    let model = null; // Modelo de idle
     const clock = new THREE.Clock();
-    let castingLoaded = false; // para evitar recargar casting varias veces
+    let castingLoaded = false; // Para que casting se cargue solo una vez
 
-    // Función para configurar sombras en el modelo
+    // Función para configurar las sombras en el modelo
     function setupModel(object) {
       object.traverse(child => {
         if (child.isMesh) {
@@ -77,8 +77,10 @@
       scene.add(object);
     }
 
-    // Cargar el FBX de Idle (por defecto)
+    // Creamos un FBXLoader (lo usaremos para ambos archivos)
     const fbxLoader = new FBXLoader();
+
+    // Cargar el FBX de Idle (por defecto)
     fbxLoader.load(
       './GreatSwordIdle.fbx', // Archivo de idle
       (object) => {
@@ -86,9 +88,12 @@
         setupModel(model);
         if (object.animations && object.animations.length) {
           mixer = new THREE.AnimationMixer(object);
+          // Se toma el primer clip como animación idle
           idleAction = mixer.clipAction(object.animations[0]);
           idleAction.play();
         }
+        // Una vez que idle está cargado, se añade el listener para el click
+        container.addEventListener('click', onCastingClick, false);
       },
       (xhr) => {
         console.log(`Idle: ${(xhr.loaded / xhr.total * 100).toFixed(0)}% cargado`);
@@ -98,20 +103,19 @@
       }
     );
 
-    // Al hacer click, cargar la animación de Casting
-    window.addEventListener('mousedown', () => {
-      if (!castingLoaded && mixer) {
+    // Función que se ejecuta al hacer click para cargar la animación de casting
+    function onCastingClick() {
+      if (!castingLoaded && mixer && idleAction) {
         castingLoaded = true;
         // Cargar el FBX de Casting
         fbxLoader.load(
           './GreatSwordCasting.fbx', // Archivo de casting
           (castingObject) => {
             if (castingObject.animations && castingObject.animations.length) {
-              // Suponemos que el casting tiene al menos una animación
+              // Se toma el primer clip de la animación de casting
               castingAction = mixer.clipAction(castingObject.animations[0]);
-              // Opcional: reiniciar desde el inicio
               castingAction.reset();
-              // Crossfade del idle al casting (0.5 segundos de transición)
+              // Realizar crossfade de idle a casting (transición de 0.5 segundos)
               idleAction.crossFadeTo(castingAction, 0.5, false);
               castingAction.play();
             }
@@ -124,9 +128,9 @@
           }
         );
       }
-    });
+    }
 
-    // Ajustar tamaño en redimensionamiento
+    // Ajustar el tamaño al redimensionar la ventana
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
